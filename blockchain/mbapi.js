@@ -6,8 +6,8 @@ import { BaseDocumentLoader } from "langchain/document_loaders/base";
  * @example
  * ```typescript
  * const BlockchainType = {
- *  NEAR_MAINNET: "near-mainnet",
- *  NEAR_TESTNET: "near-testnet",
+ *  NEAR_MAINNET: "mainnet",
+ *  NEAR_TESTNET: "testnet",
  *};
  * const loader = new MintBaseLoader({
  *   contractAddress: "{contractAddress}",
@@ -55,30 +55,17 @@ export class MintBaseLoader extends BaseDocumentLoader {
     /**
      * Extracts documents from the provided output.
      * @param output - The output to extract documents from.
-     * @param responseType - The type of the response to extract documents from.
      * @returns An array of Documents.
      */
-    extractDocuments(output, responseType) {
+    extractDocuments(output) {
         const documents = [];
-        const results = Array.isArray(output) ? output : [output];
-        if (responseType === "transcripts") {
-            const pageContent = results.map((result) => result.text).join("\n");
-            const metadata = {
-                source: "MintBase",
-                responseType,
-            };
-            documents.push(new Document({ pageContent, metadata }));
-        }
-        else {
-            for (const result of results) {
-                const pageContent = JSON.stringify(result);
-                const metadata = {
-                    source: "MintBase",
-                    responseType,
-                };
-                documents.push(new Document({ pageContent, metadata }));
-            }
-        }
+        const pageContent = JSON.stringify(output);
+        const metadata = {
+            source: output.nft_contract_id,
+            blockchain: this.blockchainType,
+            tokenId: output.token_id,
+        };
+        documents.push(new Document({ pageContent, metadata }));
         return documents;
     }
     /**
@@ -88,17 +75,8 @@ export class MintBaseLoader extends BaseDocumentLoader {
      */
     processResponseData(data) {
         const documents = [];
-        const responseTypes = [
-            "answer_box",
-            "shopping_results",
-            "knowledge_graph",
-            "organic_results",
-            "transcripts",
-        ];
-        for (const responseType of responseTypes) {
-            if (responseType in data) {
-                documents.push(...this.extractDocuments(data[responseType], responseType));
-            }
+        for (const nft_token of data.data.mb_views_nft_tokens) {
+            documents.push(...this.extractDocuments(nft_token));
         }
         return documents;
     }
@@ -109,8 +87,7 @@ export class MintBaseLoader extends BaseDocumentLoader {
      * @returns A promise that resolves to the fetched data as a JSON object.
      * @throws An error if the fetch operation fails.
      */
-    async fetchData(blockchainType, contractAddress) {
-
+    async fetchData(contractAddress) {
         const operationsDoc = `
             query MyQuery {
               mb_views_nft_tokens(where: {nft_contract_id: {_eq: "${contractAddress}"}}) {
@@ -157,10 +134,10 @@ export class MintBaseLoader extends BaseDocumentLoader {
             }
           `;
         const response = await fetch(
-            "https://graph.mintbase.xyz/mainnet",
+            `https://graph.mintbase.xyz/${this.blockchainType}`,
             {
                 headers: {
-                    "mb-api-key": "omni-site",
+                    "mb-api-key": this.apiKey,
                     "Content-Type": "application/json"
                 },
                 method: "POST",
@@ -172,7 +149,6 @@ export class MintBaseLoader extends BaseDocumentLoader {
             }
         );
         const data = await response.json();
-        console.log(data)
 
         // do something great with this precious data
 
@@ -187,11 +163,9 @@ export class MintBaseLoader extends BaseDocumentLoader {
      * @throws An error if the search results could not be loaded.
      */
     async load() {
-        const apiKey = this.apiKey;
         const contractAddress = this.contractAddress;
-        const blockchainType = this.NEAR_MAINNET ? "MAINNET" : "TESTNET";
         try {
-            const data = await this.fetchData(blockchainType, contractAddress);
+            const data = await this.fetchData(contractAddress);
             return this.processResponseData(data);
         }
         catch (error) {
