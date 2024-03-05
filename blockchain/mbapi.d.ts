@@ -12,7 +12,7 @@ interface JSONArray extends Array<JSONValue> {
  * MintbaseParameters Type Definition.
  *
  * For more parameters and supported search engines, refer specific engine documentation:
- * and others.
+ * Mintbase Graph - https://docs.mintbase.xyz/dev/mintbase-graph
  *
  */
 type contractAddress = string;
