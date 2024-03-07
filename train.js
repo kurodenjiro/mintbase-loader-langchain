@@ -12,7 +12,7 @@ const blockchainType = {
 async function generateAndStoreEmbeddings() {
 
   // STEP 1: Create documents
-  const loader = new MintBaseLoader("mint.yearofchef.near", "omni-site", blockchainType.NEAR_MAINNET);
+  const loader = new MintBaseLoader(["mint.yearofchef.near"], "omni-site", blockchainType.NEAR_MAINNET);
   const docs = await loader.load();
 
   // STEP 2: Generate embeddings from documents
