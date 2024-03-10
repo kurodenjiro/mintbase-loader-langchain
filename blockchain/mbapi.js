@@ -10,7 +10,7 @@ import { BaseDocumentLoader } from "langchain/document_loaders/base";
  *  NEAR_TESTNET: "testnet",
  *};
  * const loader = new MintBaseLoader({
- *   contractAddressList: ["{contractAddress}"],
+ *   contractAddress: "{contractAddress}",
  *   apiKey: "{apiKey}",
  *   blockchainType: "{blockchainType.NEAR_MAINNET}",
  * });
@@ -20,7 +20,7 @@ import { BaseDocumentLoader } from "langchain/document_loaders/base";
 
 
 export class MintBaseLoader extends BaseDocumentLoader {
-    constructor(contractAddressList, apiKey, blockchainType) {
+    constructor(contractAddress, apiKey, blockchainType) {
         super();
         Object.defineProperty(this, "apiKey", {
             enumerable: true,
@@ -28,7 +28,7 @@ export class MintBaseLoader extends BaseDocumentLoader {
             writable: true,
             value: void 0
         });
-        Object.defineProperty(this, "contractAddressList", {
+        Object.defineProperty(this, "contractAddress", {
             enumerable: true,
             configurable: true,
             writable: true,
@@ -44,12 +44,12 @@ export class MintBaseLoader extends BaseDocumentLoader {
         if (typeof apiKey !== "string") {
             throw new Error("Invalid type for apiKey. Expected string.");
         }
-        if(!Array.isArray(contractAddressList)){
-            throw new Error(`Invalid data type`);
+        const regex = /^(([a-z\d]+[\-_])*[a-z\d]+\.)*([a-z\d]+[\-_])*[a-z\d]+$/g;
+        if (!regex.test(contractAddress)) {
+            throw new Error(`Invalid contract address ${contractAddress}`);
         }
-
         this.apiKey = apiKey;
-        this.contractAddressList = contractAddressList;
+        this.contractAddress = contractAddress;
         this.blockchainType = blockchainType;
     }
     /**
@@ -76,7 +76,9 @@ export class MintBaseLoader extends BaseDocumentLoader {
     processResponseData(data) {
         const documents = [];
         for (const nft_token of data) {
-            documents.push(...this.extractDocuments(nft_token));
+            if(JSON.stringify(nft_token).length < 8000){
+                documents.push(...this.extractDocuments(nft_token));
+            }
         }
         return documents;
     }
@@ -88,7 +90,9 @@ export class MintBaseLoader extends BaseDocumentLoader {
      * @throws An error if the fetch operation fails.
      */
     async fetchData(contractAddress) {
-        const operationsDoc = `
+        
+        try {
+            const operationsDoc = `
             query MyQuery {
               mb_views_nft_tokens(where: {nft_contract_id: {_eq: "${contractAddress}"}}) {
                 base_uri
@@ -133,28 +137,29 @@ export class MintBaseLoader extends BaseDocumentLoader {
               }
             }
           `;
-        const response = await fetch(
-            `https://graph.mintbase.xyz/${this.blockchainType}`,
-            {
-                headers: {
-                    "mb-api-key": this.apiKey,
-                    "Content-Type": "application/json"
-                },
-                method: "POST",
-                body: JSON.stringify({
-                    query: operationsDoc,
-                    variables: {},
-                    operationName: "MyQuery"
-                })
-            }
-        );
-        const data = await response.json();
-
-        // do something great with this precious data
-        if (data.errors) {
-            throw new Error(`Failed to load search results from MintBase due to: ${data.errors[0]}`);
+            const response = await fetch(
+                `https://graph.mintbase.xyz/${this.blockchainType}`,
+                {
+                    headers: {
+                        "mb-api-key": this.apiKey,
+                        "Content-Type": "application/json"
+                    },
+                    method: "POST",
+                    body: JSON.stringify({
+                        query: operationsDoc,
+                        variables: {},
+                        operationName: "MyQuery"
+                    })
+                }
+            );
+            const data = await response.json();
+            const tokens = data.data.mb_views_nft_tokens.slice(0,4);
+            return tokens;
+        } catch (error) {
+            return null
         }
-        return data.data.mb_views_nft_tokens;
+
+
     }
     /**
      * Loads the search results from the MintBase.
@@ -162,20 +167,17 @@ export class MintBaseLoader extends BaseDocumentLoader {
      * @throws An error if the search results could not be loaded.
      */
     async load() {
-        const contractAddressList = this.contractAddressList;
+        const contractAddress = this.contractAddress;
         try {
-            const data = [];
-            for (const contractAddress of contractAddressList) {
-                const regex = /^(([a-z\d]+[\-_])*[a-z\d]+\.)*([a-z\d]+[\-_])*[a-z\d]+$/g;
-                if (regex.test(contractAddress)) {
-                    const dataNft = await this.fetchData(contractAddress);
-                    data.push(dataNft)
-                }
+            const data = await this.fetchData(contractAddress);
+            if(data){
+                return this.processResponseData(data);
+            }else{
+                return null;
             }
-            return this.processResponseData(data);
+            
         }
         catch (error) {
-            console.error(error);
             throw new Error(`Failed to process search results from MintBase: ${error}`);
         }
     }
