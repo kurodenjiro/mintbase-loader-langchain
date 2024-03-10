@@ -15,7 +15,7 @@ interface JSONArray extends Array<JSONValue> {
  * Mintbase Graph - https://docs.mintbase.xyz/dev/mintbase-graph
  *
  */
-type contractAddressList = string;
+type contractAddress = string;
 type apiKey = string;
 type blockchainType = string;
 /**
@@ -28,7 +28,7 @@ type blockchainType = string;
  *  NEAR_TESTNET: "testnet",
  *};
  * const loader = new MintBaseLoader({
- *   contractAddressList: ["{contractAddress}"],
+ *   contractAddress: "{contractAddress}",
  *   apiKey: "{apiKey}",
  *   blockchainType: "{blockchainType.NEAR_MAINNET}",
  * });
@@ -37,8 +37,8 @@ type blockchainType = string;
  */
 export declare class MintBaseLoader extends BaseDocumentLoader {
     private apiKey;
-    private contractAddressList;
-    constructor(contractAddressList: contractAddressList, apiKey: apiKey, blockchainType: blockchainType);
+    private contractAddress;
+    constructor(contractAddress: contractAddress,apiKey:apiKey,blockchainType:blockchainType);
 
     /**
      * Extracts documents from the provided output.
@@ -62,4 +62,4 @@ export declare class MintBaseLoader extends BaseDocumentLoader {
      */
     load(): Promise<Document[]>;
 }
-export { };
+export {};
