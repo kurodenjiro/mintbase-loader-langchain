@@ -12,9 +12,16 @@ async function searchProject() {
         "potlock",
         new OpenAIEmbeddings({ openAIApiKey: OPENAI_API_KEY }),
     );
-
-    const retriever = await vectorStore.similaritySearchWithScore("public good", 5);
-    console.log(retriever);
+    const filterData = [];
+    const retriever = await vectorStore.similaritySearchWithScore("NFT",40);
+  //  console.log(retriever);
+    for (const data of retriever) {
+        console.log(data[1])
+        if(data[1] < 0.23){
+        filterData.push(data[0])
+        }
+    }
+    console.log(filterData,filterData.length)
  
 
 }
